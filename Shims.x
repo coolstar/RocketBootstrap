@@ -1,9 +1,8 @@
 #import "log.h"
 #import "unfair_lock.h"
-#import "rocketbootstrap_internal.h"
+#import "rocketbootstrap.h"
 
 #import <CaptainHook/CaptainHook.h>
-#import <libkern/OSAtomic.h>
 #import <substrate.h>
 
 static unfair_lock shim_lock;
@@ -38,8 +37,6 @@ static void hook_bootstrap_lookup(void)
 
 CFMessagePortRef rocketbootstrap_cfmessageportcreateremote(CFAllocatorRef allocator, CFStringRef name)
 {
-	if (rocketbootstrap_is_passthrough())
-		return CFMessagePortCreateRemote(allocator, name);
 	hook_bootstrap_lookup();
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	NSMutableDictionary *threadDictionary = [NSThread currentThread].threadDictionary;
@@ -52,8 +49,6 @@ CFMessagePortRef rocketbootstrap_cfmessageportcreateremote(CFAllocatorRef alloca
 
 kern_return_t rocketbootstrap_cfmessageportexposelocal(CFMessagePortRef messagePort)
 {
-	if (rocketbootstrap_is_passthrough())
-		return 0;
 	CFStringRef name = CFMessagePortGetName(messagePort);
 	if (!name)
 		return -1;
@@ -115,8 +110,6 @@ static bool has_hooked_messaging_center;
 
 void rocketbootstrap_distributedmessagingcenter_apply(CPDistributedMessagingCenter *messaging_center)
 {
-	if (rocketbootstrap_is_passthrough())
-		return;
 	unfair_lock_lock(&shim_lock);
 	if (!has_hooked_messaging_center) {
 		has_hooked_messaging_center = true;
