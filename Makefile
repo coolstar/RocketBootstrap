@@ -1,6 +1,6 @@
 LIBRARY_NAME = librocketbootstrap
 librocketbootstrap_FILES = Tweak.x Shims.x
-librocketbootstrap_LIBRARIES = substrate
+librocketbootstrap_LIBRARIES = hooker blackjack
 librocketbootstrap_FRAMEWORKS = Foundation
 librocketbootstrap_USE_MODULES = 0
 

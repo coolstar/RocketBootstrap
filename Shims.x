@@ -3,7 +3,8 @@
 #import "rocketbootstrap.h"
 
 #import <CaptainHook/CaptainHook.h>
-#import <substrate.h>
+#import <libhooker.h>
+#import <ptrauth.h>
 
 static unfair_lock shim_lock;
 
@@ -29,7 +30,9 @@ static void hook_bootstrap_lookup(void)
 	static bool hooked_bootstrap_look_up;
 	unfair_lock_lock(&shim_lock);
 	if (!hooked_bootstrap_look_up) {
-		MSHookFunction(bootstrap_look_up3, $bootstrap_look_up3, (void **)&_bootstrap_look_up3);
+		struct LHFunctionHook func = {bootstrap_look_up3, $bootstrap_look_up3, (void **)&_bootstrap_look_up3};
+		LHHookFunctions(&func, 1);
+
 		hooked_bootstrap_look_up = true;
 	}
 	unfair_lock_unlock(&shim_lock);
@@ -132,14 +135,19 @@ static xpc_endpoint_t _xpc_endpoint_create(mach_port_t port)
 {
 	static xpc_endpoint_t(*__xpc_endpoint_create)(mach_port_t);
 	if (!__xpc_endpoint_create) {
-		MSImageRef libxpc = MSGetImageByName("/usr/lib/system/libxpc.dylib");
+		struct libhooker_image *libxpc = LHOpenImage("/usr/lib/system/libxpc.dylib");
 		if (!libxpc) {
 			return NULL;
 		}
-		__xpc_endpoint_create = MSFindSymbol(libxpc, "__xpc_endpoint_create");
-		if (!__xpc_endpoint_create) {
+
+		const char *names[1] = {"__xpc_endpoint_create"};
+		void *syms[1];
+
+		if (!LHFindSymbols(libxpc, names, syms, 1)) {
 			return NULL;
 		}
+		__xpc_endpoint_create = ptrauth_sign_unauthenticated(syms[0], ptrauth_key_asia, 0);
+		LHCloseImage(libxpc);
 	}
 	return __xpc_endpoint_create(port);
 }
@@ -148,14 +156,19 @@ static mach_port_t _xpc_connection_copy_listener_port(xpc_connection_t connectio
 {
 	static mach_port_t(*__xpc_connection_copy_listener_port)(xpc_connection_t);
 	if (!__xpc_connection_copy_listener_port) {
-		MSImageRef libxpc = MSGetImageByName("/usr/lib/system/libxpc.dylib");
+		struct libhooker_image *libxpc = LHOpenImage("/usr/lib/system/libxpc.dylib");
 		if (!libxpc) {
 			return MACH_PORT_NULL;
 		}
-		__xpc_connection_copy_listener_port = MSFindSymbol(libxpc, "__xpc_connection_copy_listener_port");
-		if (!__xpc_connection_copy_listener_port) {
+
+		const char *names[1] = {"__xpc_connection_copy_listener_port"};
+		void *syms[1];
+
+		if (!LHFindSymbols(libxpc, names, syms, 1)) {
 			return MACH_PORT_NULL;
 		}
+		__xpc_connection_copy_listener_port = ptrauth_sign_unauthenticated(syms[0], ptrauth_key_asia, 0);
+		LHCloseImage(libxpc);
 	}
 	return __xpc_connection_copy_listener_port(connection);
 }
